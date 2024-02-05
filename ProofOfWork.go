@@ -3,41 +3,37 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 )
 
-const targetBits = 24
-const maxNonce = math.MaxInt64
+var (
+	maxNonce = math.MaxInt64
+)
 
+const targetBits = 24
+
+// ProofOfWork represents a proof-of-work
 type ProofOfWork struct {
 	block  *Block
 	target *big.Int
 }
 
+// NewProofOfWork builds and returns a ProofOfWork
 func NewProofOfWork(b *Block) *ProofOfWork {
 	target := big.NewInt(1)
-	target.Lsh(target, uint(256 - targetBits))
+	target.Lsh(target, uint(256-targetBits))
+
 	pow := &ProofOfWork{b, target}
+
 	return pow
 }
 
-func IntToHex(data int64) []byte {
-	buffer := new(bytes.Buffer) // 新建一个buffer
-	err := binary.Write(buffer, binary.BigEndian, data)
-	if nil != err {
-		log.Panicf("int to []byte failed! %v\n", err)
-	}
-	return buffer.Bytes()
-}
-
-func (pow* ProofOfWork) prepareData(nonce int) []byte {
+func (pow *ProofOfWork) prepareData(nonce int) []byte {
 	data := bytes.Join(
 		[][]byte{
-			pow.block.PrevHash,
+			pow.block.PrevBlockHash,
 			pow.block.HashTransactions(),
 			IntToHex(pow.block.Timestamp),
 			IntToHex(int64(targetBits)),
@@ -45,17 +41,20 @@ func (pow* ProofOfWork) prepareData(nonce int) []byte {
 		},
 		[]byte{},
 	)
+
 	return data
 }
 
+// Run performs a proof-of-work
 func (pow *ProofOfWork) Run() (int, []byte) {
 	var hashInt big.Int
 	var hash [32]byte
 	nonce := 0
 
-	fmt.Printf("Mining a new block \n")
+	fmt.Printf("Mining a new block")
 	for nonce < maxNonce {
 		data := pow.prepareData(nonce)
+
 		hash = sha256.Sum256(data)
 		fmt.Printf("\r%x", hash)
 		hashInt.SetBytes(hash[:])
@@ -67,11 +66,14 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 		}
 	}
 	fmt.Print("\n\n")
+
 	return nonce, hash[:]
 }
 
+// Validate validates block's PoW
 func (pow *ProofOfWork) Validate() bool {
 	var hashInt big.Int
+
 	data := pow.prepareData(pow.block.Nonce)
 	hash := sha256.Sum256(data)
 	hashInt.SetBytes(hash[:])
